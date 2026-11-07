@@ -1,80 +1,114 @@
--- Migration inicial: estrutura de produtos, vendas e itens de venda + carga de exemplo.
--- Relação N:N entre venda e produto resolvida por item_venda.
+PRAGMA foreign_keys = ON;
 
-DROP TABLE IF EXISTS item_venda;
-DROP TABLE IF EXISTS venda;
-DROP TABLE IF EXISTS produto;
-
-CREATE TABLE produto (
-    id    INTEGER PRIMARY KEY AUTOINCREMENT,
-    nome  TEXT NOT NULL,
-    valor REAL NOT NULL CHECK (valor >= 0)
+CREATE TABLE IF NOT EXISTS regiao (
+    id_regiao INTEGER PRIMARY KEY,
+    nome TEXT NOT NULL UNIQUE
 );
 
-CREATE TABLE venda (
-    id_venda    INTEGER PRIMARY KEY AUTOINCREMENT,
-    data_venda  DATE NOT NULL,
-    valor_total REAL NOT NULL CHECK (valor_total >= 0)
+CREATE TABLE IF NOT EXISTS pais (
+    id_pais INTEGER PRIMARY KEY,
+    nome TEXT NOT NULL UNIQUE,
+    id_regiao INTEGER NOT NULL,
+    FOREIGN KEY (id_regiao) REFERENCES regiao (id_regiao)
 );
 
-CREATE TABLE item_venda (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_venda       INTEGER NOT NULL REFERENCES venda (id_venda) ON DELETE CASCADE,
-    id_produto     INTEGER NOT NULL REFERENCES produto (id),
-    quantidade     INTEGER NOT NULL CHECK (quantidade > 0),
-    valor_unitario REAL NOT NULL CHECK (valor_unitario >= 0),
-    UNIQUE (id_venda, id_produto)
+CREATE TABLE IF NOT EXISTS cliente (
+    id_cliente INTEGER PRIMARY KEY,
+    nome TEXT NOT NULL,
+    idade INTEGER,
+    genero TEXT,
+    escolaridade TEXT,
+    cidade TEXT
 );
 
-CREATE INDEX idx_venda_data ON venda (data_venda);
-CREATE INDEX idx_item_venda_venda ON item_venda (id_venda);
-CREATE INDEX idx_item_venda_produto ON item_venda (id_produto);
+CREATE TABLE IF NOT EXISTS carro (
+    id_carro INTEGER PRIMARY KEY,
+    ano_carro INTEGER NOT NULL,
+    modelo_carro TEXT NOT NULL
+);
 
--- Carga de produtos
-INSERT INTO produto (id, nome, valor) VALUES
-    (1, 'Camiseta Básica',      59.90),
-    (2, 'Calça Jeans',          189.90),
-    (3, 'Tênis Esportivo',      349.90),
-    (4, 'Boné Aba Curva',       49.90),
-    (5, 'Jaqueta Corta-Vento',  279.90),
-    (6, 'Meia Esportiva (par)', 19.90);
+CREATE TABLE IF NOT EXISTS preco_carro (
+    id_carro INTEGER NOT NULL,
+    id_pais INTEGER NOT NULL,
+    preco_carro NUMERIC NOT NULL,
+    ano_referencia INTEGER NOT NULL,
+    PRIMARY KEY (id_carro, id_pais, ano_referencia),
+    FOREIGN KEY (id_carro) REFERENCES carro (id_carro),
+    FOREIGN KEY (id_pais) REFERENCES pais (id_pais)
+);
 
--- Carga de vendas (datas relativas a hoje, para o filtro padrão do dashboard sempre ter dados)
-INSERT INTO venda (id_venda, data_venda, valor_total) VALUES
-    (1,  date('now', '-1 day'),  389.70),
-    (2,  date('now', '-3 days'), 169.70),
-    (3,  date('now', '-5 days'), 249.60),
-    (4,  date('now', '-7 days'), 629.80),
-    (5,  date('now', '-8 days'), 99.80),
-    (6,  date('now', '-12 days'), 249.80),
-    (7,  date('now', '-15 days'), 719.70),
-    (8,  date('now', '-18 days'), 279.90),
-    (9,  date('now', '-22 days'), 429.70),
-    (10, date('now', '-25 days'), 79.60),
-    (11, date('now', '-28 days'), 179.70),
-    (12, date('now', '-35 days'), 629.80),
-    (13, date('now', '-45 days'), 189.90);
+CREATE TABLE IF NOT EXISTS pedido (
+    id_pedido INTEGER PRIMARY KEY,
+    id_cliente INTEGER NOT NULL,
+    data_pedido TEXT NOT NULL,
+    id_pais INTEGER NOT NULL,
+    total_pedido NUMERIC NOT NULL,
+    avaliacao_cliente NUMERIC,
+    FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
+    FOREIGN KEY (id_pais) REFERENCES pais (id_pais)
+);
 
--- Carga dos itens de cada venda (soma dos itens = valor_total da venda)
-INSERT INTO item_venda (id_venda, id_produto, quantidade, valor_unitario) VALUES
-    (1,  3, 1, 349.90),
-    (1,  6, 2, 19.90),
-    (2,  1, 2, 59.90),
-    (2,  4, 1, 49.90),
-    (3,  2, 1, 189.90),
-    (3,  6, 3, 19.90),
-    (4,  5, 1, 279.90),
-    (4,  3, 1, 349.90),
-    (5,  4, 2, 49.90),
-    (6,  1, 1, 59.90),
-    (6,  2, 1, 189.90),
-    (7,  3, 2, 349.90),
-    (7,  6, 1, 19.90),
-    (8,  5, 1, 279.90),
-    (9,  2, 2, 189.90),
-    (9,  4, 1, 49.90),
-    (10, 6, 4, 19.90),
-    (11, 1, 3, 59.90),
-    (12, 3, 1, 349.90),
-    (12, 5, 1, 279.90),
-    (13, 2, 1, 189.90);
+CREATE TABLE IF NOT EXISTS item_pedido (
+    id_item_pedido INTEGER PRIMARY KEY,
+    id_pedido INTEGER NOT NULL,
+    id_carro INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL,
+    preco_item NUMERIC NOT NULL,
+    desconto NUMERIC NOT NULL DEFAULT 0,
+    FOREIGN KEY (id_pedido) REFERENCES pedido (id_pedido),
+    FOREIGN KEY (id_carro) REFERENCES carro (id_carro)
+);
+
+CREATE TABLE IF NOT EXISTS historico_precos (
+    data_referencia TEXT NOT NULL,
+    ano INTEGER NOT NULL,
+    id_pais INTEGER NOT NULL,
+    id_carro INTEGER NOT NULL,
+    preco_medio NUMERIC NOT NULL,
+    PRIMARY KEY (data_referencia, ano, id_pais, id_carro),
+    FOREIGN KEY (id_pais) REFERENCES pais (id_pais),
+    FOREIGN KEY (id_carro) REFERENCES carro (id_carro)
+);
+
+CREATE TABLE IF NOT EXISTS historico_descontos (
+    ano INTEGER NOT NULL,
+    pais INTEGER NOT NULL,
+    carro INTEGER NOT NULL,
+    desconto_medio NUMERIC NOT NULL,
+    PRIMARY KEY (ano, pais, carro),
+    FOREIGN KEY (pais) REFERENCES pais (id_pais),
+    FOREIGN KEY (carro) REFERENCES carro (id_carro)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pais_id_regiao
+    ON pais (id_regiao);
+
+CREATE INDEX IF NOT EXISTS idx_preco_carro_id_pais_ano
+    ON preco_carro (id_pais, ano_referencia);
+
+CREATE INDEX IF NOT EXISTS idx_pedido_id_cliente
+    ON pedido (id_cliente);
+
+CREATE INDEX IF NOT EXISTS idx_pedido_id_pais_data
+    ON pedido (id_pais, data_pedido);
+
+CREATE INDEX IF NOT EXISTS idx_pedido_data_pedido
+    ON pedido (data_pedido);
+
+CREATE INDEX IF NOT EXISTS idx_item_pedido_id_pedido
+    ON item_pedido (id_pedido);
+
+CREATE INDEX IF NOT EXISTS idx_item_pedido_id_carro
+    ON item_pedido (id_carro);
+
+CREATE INDEX IF NOT EXISTS idx_historico_precos_pais_carro_ano
+    ON historico_precos (id_pais, id_carro, ano);
+
+CREATE INDEX IF NOT EXISTS idx_historico_precos_id_carro
+    ON historico_precos (id_carro);
+
+CREATE INDEX IF NOT EXISTS idx_historico_descontos_pais_carro_ano
+    ON historico_descontos (pais, carro, ano);
+
+CREATE INDEX IF NOT EXISTS idx_historico_descontos_carro
+    ON historico_descontos (carro);
