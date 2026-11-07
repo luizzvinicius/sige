@@ -1,4 +1,4 @@
-"""Gera os inserts de regiao e pais a partir do dataset ouro."""
+"""Gera inserts de regiao, pais e cliente a partir do dataset ouro."""
 
 from pathlib import Path
 import pandas as pd
@@ -13,7 +13,7 @@ def sql_text(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def main() -> None:
+def gerar_sql_regioes_paises() -> list[str]:
     dados = pd.read_csv(CSV_PATH, usecols=["regiao", "pais"])
     regioes = dados.groupby("regiao").size().index.tolist()
     paises = (
@@ -36,9 +36,36 @@ def main() -> None:
             paises.itertuples(index=False, name=None), start=1
         )
     )
-    linhas_sql.extend(["", "COMMIT;", ""])
+    linhas_sql.extend(["", "COMMIT;"])
+    return linhas_sql
+
+
+def gerar_sql_clientes() -> list[str]:
+    colunas = ["id", "nome", "idade", "genero", "escolaridade", "cidade"]
+    clientes = pd.read_csv(CSV_PATH, usecols=colunas).drop_duplicates()
+    linhas_sql = ["BEGIN TRANSACTION;", ""]
+
+    for id_cliente, nome, idade, genero, escolaridade, cidade in clientes.itertuples(
+        index=False, name=None
+    ):
+        linhas_sql.append(
+            "INSERT INTO cliente "
+            "(id_cliente, nome, idade, genero, escolaridade, cidade) "
+            f"VALUES ({int(id_cliente)}, {sql_text(nome)}, {int(idade)}, "
+            f"{sql_text(genero)}, {sql_text(escolaridade)}, {sql_text(cidade)});"
+        )
+
+    linhas_sql.extend(["", "COMMIT;"])
+    return linhas_sql
+
+
+def main() -> None:
+    sql_regioes_paises = gerar_sql_regioes_paises()
+    sql_clientes = gerar_sql_clientes()
+    linhas_sql = sql_regioes_paises + [""] + sql_clientes + [""]
+
     SQL_PATH.write_text("\n".join(linhas_sql), encoding="utf-8")
-    print(f"Gerado {SQL_PATH}: {len(regioes)} regioes, {len(paises)} paises.")
+    print("Script executado com sucesso.")
 
 
 if __name__ == "__main__":
