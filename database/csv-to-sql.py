@@ -1,5 +1,3 @@
-"""Gera inserts de regiao, pais e cliente a partir do dataset ouro."""
-
 from pathlib import Path
 import pandas as pd
 
@@ -59,10 +57,34 @@ def gerar_sql_clientes() -> list[str]:
     return linhas_sql
 
 
+def gerar_sql_carros() -> list[str]:
+    carros = (
+        pd.read_csv(CSV_PATH, usecols=["modelo", "ano"])
+        .groupby(["modelo", "ano"])
+        .size()
+        .reset_index()[["modelo", "ano"]]
+    )
+    linhas_sql = ["BEGIN TRANSACTION;", ""]
+
+    for id_carro, (modelo, ano) in enumerate(
+        carros.itertuples(index=False, name=None), start=1
+    ):
+        linhas_sql.append(
+            "INSERT INTO carro (id_carro, ano_carro, modelo_carro) "
+            f"VALUES ({id_carro}, {int(ano)}, {sql_text(modelo)});"
+        )
+
+    linhas_sql.extend(["", "COMMIT;"])
+    return linhas_sql
+
+
 def main() -> None:
     sql_regioes_paises = gerar_sql_regioes_paises()
     sql_clientes = gerar_sql_clientes()
-    linhas_sql = sql_regioes_paises + [""] + sql_clientes + [""]
+    sql_carros = gerar_sql_carros()
+    linhas_sql = (
+        sql_regioes_paises + [""] + sql_clientes + [""] + sql_carros + [""]
+    )
 
     SQL_PATH.write_text("\n".join(linhas_sql), encoding="utf-8")
     print("Script executado com sucesso.")
