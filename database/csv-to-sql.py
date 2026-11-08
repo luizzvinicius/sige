@@ -122,11 +122,96 @@ def gerar_sql_preco_carro() -> list[str]:
     return linhas_sql
 
 
+def gerar_sql_pedidos_e_itens() -> list[str]:
+    carros = (
+        pd.read_csv(CSV_PATH, usecols=["modelo", "ano"])
+        .groupby(["modelo", "ano"])
+        .size()
+        .reset_index()[["modelo", "ano"]]
+    )
+    id_carro = {
+        (modelo, ano): i
+        for i, (modelo, ano) in enumerate(
+            carros.itertuples(index=False, name=None), start=1
+        )
+    }
+
+    paises = (
+        pd.read_csv(CSV_PATH, usecols=["regiao", "pais"])
+        .groupby(["regiao", "pais"])
+        .size()
+        .reset_index()["pais"]
+    )
+    id_pais = {pais: i for i, pais in enumerate(paises, start=1)}
+
+    preco_carro = {
+        (ano, pais, modelo): round(float(valor), 2)
+        for ano, pais, modelo, valor in (
+            pd.read_csv(CSV_PATH, usecols=["ano", "pais", "modelo", "preco_medio"])
+            .groupby(["ano", "pais", "modelo"])["preco_medio"]
+            .mean()
+            .reset_index()
+            .itertuples(index=False, name=None)
+        )
+    }
+
+    colunas_pedido = [
+        "id_pedido",
+        "id_cliente",
+        "data_pedido",
+        "ano",
+        "pais",
+        "modelo",
+        "desconto",
+        "avaliacao_cliente",
+    ]
+    pedidos = pd.read_csv(CSV_PATH, usecols=colunas_pedido)[colunas_pedido]
+    linhas_sql = ["BEGIN TRANSACTION;", ""]
+
+    for id_item_pedido, linha in enumerate(
+        pedidos.itertuples(index=False, name=None), start=1
+    ):
+        (
+            id_pedido,
+            id_cliente,
+            data_pedido,
+            ano,
+            pais,
+            modelo,
+            desconto,
+            avaliacao,
+        ) = linha
+        preco_item = preco_carro[(ano, pais, modelo)]
+        total_pedido = round(preco_item - float(desconto), 2)
+        avaliacao_sql = "NULL" if pd.isna(avaliacao) else f"{float(avaliacao)}"
+
+        linhas_sql.append(
+            "INSERT INTO pedido "
+            "(id_pedido, id_cliente, data_pedido, id_pais, total_pedido, "
+            "avaliacao_cliente) "
+            f"VALUES ({sql_text(id_pedido)}, {int(id_cliente)}, "
+            f"{sql_text(data_pedido)}, {id_pais[pais]}, {total_pedido}, "
+            f"{avaliacao_sql});"
+        )
+        linhas_sql.append(
+            "INSERT INTO item_pedido "
+            "(id_item_pedido, id_pedido, id_carro, quantidade, preco_item, "
+            "desconto) "
+            f"VALUES ({id_item_pedido}, {sql_text(id_pedido)}, "
+            f"{id_carro[(modelo, ano)]}, 1, {preco_item}, "
+            f"{float(desconto)});"
+        )
+
+    linhas_sql.extend(["", "COMMIT;"])
+    return linhas_sql
+
+
 def main() -> None:
     sql_regioes_paises = gerar_sql_regioes_paises()
     sql_clientes = gerar_sql_clientes()
     sql_carros = gerar_sql_carros()
     sql_preco_carro = gerar_sql_preco_carro()
+    sql_pedidos = gerar_sql_pedidos_e_itens()
     linhas_sql = (
         sql_regioes_paises
         + [""]
@@ -135,6 +220,8 @@ def main() -> None:
         + sql_carros
         + [""]
         + sql_preco_carro
+        + [""]
+        + sql_pedidos
         + [""]
     )
 
