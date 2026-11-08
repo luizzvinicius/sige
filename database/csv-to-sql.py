@@ -206,12 +206,33 @@ def gerar_sql_pedidos_e_itens() -> list[str]:
     return linhas_sql
 
 
+def gerar_sql_historico_descontos() -> list[str]:
+    return [
+        "-- Historico de descontos: media anual de desconto por pais e carro.",
+        "BEGIN TRANSACTION;",
+        "",
+        "INSERT INTO historico_descontos (ano, pais, carro, desconto_medio)",
+        "SELECT CAST(strftime('%Y', pe.data_pedido) AS INTEGER),",
+        "       pe.id_pais,",
+        "       i.id_carro,",
+        "       ROUND(AVG(i.desconto), 2)",
+        "FROM pedido pe",
+        "JOIN item_pedido i ON i.id_pedido = pe.id_pedido",
+        "GROUP BY CAST(strftime('%Y', pe.data_pedido) AS INTEGER),",
+        "         pe.id_pais,",
+        "         i.id_carro;",
+        "",
+        "COMMIT;",
+    ]
+
+
 def main() -> None:
     sql_regioes_paises = gerar_sql_regioes_paises()
     sql_clientes = gerar_sql_clientes()
     sql_carros = gerar_sql_carros()
     sql_preco_carro = gerar_sql_preco_carro()
     sql_pedidos = gerar_sql_pedidos_e_itens()
+    sql_historico_descontos = gerar_sql_historico_descontos()
     linhas_sql = (
         sql_regioes_paises
         + [""]
@@ -222,6 +243,8 @@ def main() -> None:
         + sql_preco_carro
         + [""]
         + sql_pedidos
+        + [""]
+        + sql_historico_descontos
         + [""]
     )
 
