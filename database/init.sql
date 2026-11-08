@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS preco_carro (
 );
 
 CREATE TABLE IF NOT EXISTS pedido (
-    id_pedido INTEGER PRIMARY KEY,
+    id_pedido TEXT PRIMARY KEY,
     id_cliente INTEGER NOT NULL,
     data_pedido TEXT NOT NULL,
     id_pais INTEGER NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS pedido (
 
 CREATE TABLE IF NOT EXISTS item_pedido (
     id_item_pedido INTEGER PRIMARY KEY,
-    id_pedido INTEGER NOT NULL,
+    id_pedido TEXT NOT NULL,
     id_carro INTEGER NOT NULL,
     quantidade INTEGER NOT NULL,
     preco_item NUMERIC NOT NULL,
