@@ -78,12 +78,64 @@ def gerar_sql_carros() -> list[str]:
     return linhas_sql
 
 
+def gerar_sql_preco_carro() -> list[str]:
+    carros = (
+        pd.read_csv(CSV_PATH, usecols=["modelo", "ano"])
+        .groupby(["modelo", "ano"])
+        .size()
+        .reset_index()[["modelo", "ano"]]
+    )
+    id_carro = {
+        (modelo, ano): i
+        for i, (modelo, ano) in enumerate(
+            carros.itertuples(index=False, name=None), start=1
+        )
+    }
+
+    paises = (
+        pd.read_csv(CSV_PATH, usecols=["regiao", "pais"])
+        .groupby(["regiao", "pais"])
+        .size()
+        .reset_index()["pais"]
+    )
+    id_pais = {pais: i for i, pais in enumerate(paises, start=1)}
+
+    precos = (
+        pd.read_csv(CSV_PATH, usecols=["ano", "pais", "modelo", "preco_medio"])
+        .groupby(["ano", "pais", "modelo"])["preco_medio"]
+        .mean()
+        .reset_index()
+    )
+    linhas_sql = ["BEGIN TRANSACTION;", ""]
+
+    for ano, pais, modelo, preco_medio in precos.itertuples(
+        index=False, name=None
+    ):
+        linhas_sql.append(
+            "INSERT INTO preco_carro "
+            "(id_carro, id_pais, preco_carro, ano_referencia) "
+            f"VALUES ({id_carro[(modelo, ano)]}, {id_pais[pais]}, "
+            f"{round(float(preco_medio), 2)}, {int(ano)});"
+        )
+
+    linhas_sql.extend(["", "COMMIT;"])
+    return linhas_sql
+
+
 def main() -> None:
     sql_regioes_paises = gerar_sql_regioes_paises()
     sql_clientes = gerar_sql_clientes()
     sql_carros = gerar_sql_carros()
+    sql_preco_carro = gerar_sql_preco_carro()
     linhas_sql = (
-        sql_regioes_paises + [""] + sql_clientes + [""] + sql_carros + [""]
+        sql_regioes_paises
+        + [""]
+        + sql_clientes
+        + [""]
+        + sql_carros
+        + [""]
+        + sql_preco_carro
+        + [""]
     )
 
     SQL_PATH.write_text("\n".join(linhas_sql), encoding="utf-8")
