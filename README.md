@@ -13,7 +13,7 @@ dashboard-python/
 ├── database/
 │   ├── app.db           # Banco SQLite (gerado automaticamente)
 │   ├── connection.py    # Conexão e inicialização do banco
-│   └── init.sql         # Migration inicial com a carga de dados
+│   └── schema.sql       # Migration inicial com a carga de dados
 ├── .gitignore
 ├── README.md
 └── requirements.txt
@@ -95,5 +95,5 @@ $env:API_URL = "http://localhost:8000"
 - `venda` — `id_venda`, `data_venda`, `valor_total`
 - `item_venda` — `id`, `id_venda`, `id_produto`, `quantidade`, `valor_unitario` (resolve a relação **N:N** entre venda e produto)
 
-As datas de carga em `database/init.sql` são relativas ao dia atual, então o filtro
+As datas de carga em `database/schema.sql` são relativas ao dia atual, então o filtro
 padrão do dashboard (últimos 30 dias) sempre retorna dados.
