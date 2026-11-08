@@ -23,14 +23,14 @@ CREATE TABLE IF NOT EXISTS cliente (
 
 CREATE TABLE IF NOT EXISTS carro (
     id_carro INTEGER PRIMARY KEY,
-    ano_carro INTEGER NOT NULL,
-    modelo_carro TEXT NOT NULL
+    ano INTEGER NOT NULL,
+    modelo TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS preco_carro (
     id_carro INTEGER NOT NULL,
     id_pais INTEGER NOT NULL,
-    preco_carro NUMERIC NOT NULL,
+    preco NUMERIC NOT NULL,
     ano_referencia INTEGER NOT NULL,
     PRIMARY KEY (id_carro, id_pais, ano_referencia),
     FOREIGN KEY (id_carro) REFERENCES carro (id_carro),
@@ -40,9 +40,9 @@ CREATE TABLE IF NOT EXISTS preco_carro (
 CREATE TABLE IF NOT EXISTS pedido (
     id_pedido TEXT PRIMARY KEY,
     id_cliente INTEGER NOT NULL,
-    data_pedido TEXT NOT NULL,
+    data_pedido DATE NOT NULL,
     id_pais INTEGER NOT NULL,
-    total_pedido NUMERIC NOT NULL,
+    total NUMERIC NOT NULL,
     avaliacao_cliente NUMERIC,
     FOREIGN KEY (id_cliente) REFERENCES cliente (id_cliente),
     FOREIGN KEY (id_pais) REFERENCES pais (id_pais)
@@ -59,25 +59,14 @@ CREATE TABLE IF NOT EXISTS item_pedido (
     FOREIGN KEY (id_carro) REFERENCES carro (id_carro)
 );
 
-CREATE TABLE IF NOT EXISTS historico_precos (
-    data_referencia TEXT NOT NULL,
-    ano INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS historico_descontos (
+    ano_referencia INTEGER NOT NULL,
     id_pais INTEGER NOT NULL,
     id_carro INTEGER NOT NULL,
-    preco_medio NUMERIC NOT NULL,
-    PRIMARY KEY (data_referencia, ano, id_pais, id_carro),
+    desconto_medio NUMERIC NOT NULL,
+    PRIMARY KEY (ano_referencia, id_pais, id_carro),
     FOREIGN KEY (id_pais) REFERENCES pais (id_pais),
     FOREIGN KEY (id_carro) REFERENCES carro (id_carro)
-);
-
-CREATE TABLE IF NOT EXISTS historico_descontos (
-    ano INTEGER NOT NULL,
-    pais INTEGER NOT NULL,
-    carro INTEGER NOT NULL,
-    desconto_medio NUMERIC NOT NULL,
-    PRIMARY KEY (ano, pais, carro),
-    FOREIGN KEY (pais) REFERENCES pais (id_pais),
-    FOREIGN KEY (carro) REFERENCES carro (id_carro)
 );
 
 CREATE INDEX IF NOT EXISTS idx_pais_id_regiao
@@ -101,14 +90,8 @@ CREATE INDEX IF NOT EXISTS idx_item_pedido_id_pedido
 CREATE INDEX IF NOT EXISTS idx_item_pedido_id_carro
     ON item_pedido (id_carro);
 
-CREATE INDEX IF NOT EXISTS idx_historico_precos_pais_carro_ano
-    ON historico_precos (id_pais, id_carro, ano);
-
-CREATE INDEX IF NOT EXISTS idx_historico_precos_id_carro
-    ON historico_precos (id_carro);
-
 CREATE INDEX IF NOT EXISTS idx_historico_descontos_pais_carro_ano
-    ON historico_descontos (pais, carro, ano);
+    ON historico_descontos (id_pais, id_carro, ano_referencia);
 
 CREATE INDEX IF NOT EXISTS idx_historico_descontos_carro
-    ON historico_descontos (carro);
+    ON historico_descontos (id_carro);

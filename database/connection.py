@@ -5,7 +5,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "app.db"
-SCHEMA_PATH = BASE_DIR / "init.sql"
+SCHEMA_PATH = BASE_DIR / "schema.sql"
 DADOS_PATH = BASE_DIR / "commands.sql"
 
 def get_connection() -> sqlite3.Connection:

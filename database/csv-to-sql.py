@@ -70,7 +70,7 @@ def gerar_sql_carros() -> list[str]:
         carros.itertuples(index=False, name=None), start=1
     ):
         linhas_sql.append(
-            "INSERT INTO carro (id_carro, ano_carro, modelo_carro) "
+            "INSERT INTO carro (id_carro, ano, modelo) "
             f"VALUES ({id_carro}, {int(ano)}, {sql_text(modelo)});"
         )
 
@@ -113,7 +113,7 @@ def gerar_sql_preco_carro() -> list[str]:
     ):
         linhas_sql.append(
             "INSERT INTO preco_carro "
-            "(id_carro, id_pais, preco_carro, ano_referencia) "
+            "(id_carro, id_pais, preco, ano_referencia) "
             f"VALUES ({id_carro[(modelo, ano)]}, {id_pais[pais]}, "
             f"{round(float(preco_medio), 2)}, {int(ano)});"
         )
@@ -187,7 +187,7 @@ def gerar_sql_pedidos_e_itens() -> list[str]:
 
         linhas_sql.append(
             "INSERT INTO pedido "
-            "(id_pedido, id_cliente, data_pedido, id_pais, total_pedido, "
+            "(id_pedido, id_cliente, data_pedido, id_pais, total, "
             "avaliacao_cliente) "
             f"VALUES ({sql_text(id_pedido)}, {int(id_cliente)}, "
             f"{sql_text(data_pedido)}, {id_pais[pais]}, {total_pedido}, "
@@ -211,7 +211,8 @@ def gerar_sql_historico_descontos() -> list[str]:
         "-- Historico de descontos: media anual de desconto por pais e carro.",
         "BEGIN TRANSACTION;",
         "",
-        "INSERT INTO historico_descontos (ano, pais, carro, desconto_medio)",
+        "INSERT INTO historico_descontos "
+        "(ano_referencia, id_pais, id_carro, desconto_medio)",
         "SELECT CAST(strftime('%Y', pe.data_pedido) AS INTEGER),",
         "       pe.id_pais,",
         "       i.id_carro,",
@@ -248,7 +249,8 @@ def main() -> None:
         + [""]
     )
 
-    SQL_PATH.write_text("\n".join(linhas_sql), encoding="utf-8")
+    with SQL_PATH.open("a", encoding="utf-8") as arquivo:
+        arquivo.write("\n".join(linhas_sql))
     print("Script executado com sucesso.")
 
 
