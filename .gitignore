@@ -8,8 +8,11 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# Banco de dados local (gerado a partir de database/init.sql)
+# Banco de dados local (gerado a partir de database/schema.sql)
 database/app.db
+
+# Script que insere os dados
+database/commands.sql
 
 # Segredos locais
 .streamlit/secrets.toml
