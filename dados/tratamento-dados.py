@@ -108,4 +108,4 @@ carros_vendas_pd['id_cliente'] = novos_ids
 
 dataset_completo = pd.merge(carros_vendas_pd, clientes_pd, left_on='id_cliente', right_on='id', how='left')
 
-dataset_completo.to_csv('dados/ouro/dataset_completoo.csv', index=False)
+dataset_completo.to_csv('dados/ouro/dataset_completo.csv', index=False)
