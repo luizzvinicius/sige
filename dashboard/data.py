@@ -1,7 +1,4 @@
 """Camada de acesso a dados do dashboard.
-
-Consulta o SQLite diretamente — o arquivo do banco é gerado por
-``executar.bat`` (ou manualmente com ``python -m database.connection``).
 """
 
 from __future__ import annotations
@@ -30,7 +27,6 @@ def _connect() -> sqlite3.Connection:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def carregar_dataset() -> pd.DataFrame:
-    """Dataset desnormalizado — uma linha por item de pedido."""
     sql = """
         SELECT
             p.id_pedido,
@@ -51,7 +47,8 @@ def carregar_dataset() -> pd.DataFrame:
             it.quantidade,
             it.preco_item,
             it.desconto,
-            (it.preco_item * it.quantidade) - it.desconto AS receita_liquida
+            (it.preco_item * it.quantidade) - it.desconto AS receita_liquida,
+            (it.preco_item * it.quantidade)                   AS faturamento
         FROM pedido       p
         JOIN item_pedido  it  ON it.id_pedido = p.id_pedido
         JOIN carro        car ON car.id_carro = it.id_carro
@@ -112,22 +109,28 @@ def aplicar_filtros(
 def calcular_kpis(df: pd.DataFrame) -> dict:
     if df.empty:
         return {
-            "receita": 0.0,
+            "faturamento": 0.0,
             "pedidos": 0,
-            "clientes": 0,
-            "ticket_medio": 0.0,
-            "avaliacao": 0.0,
-            "desconto_medio": 0.0,
             "unidades": 0,
+            "ticket_medio": 0.0,
+            "desconto_medio": 0.0,
+            "modelo_mais_vendido": "—",
+            "regiao_maior_receita": "—",
+            "regiao_menor_receita": "—",
         }
+
+    receita_por_regiao = df.groupby("regiao")["receita_liquida"].sum()
+    unidades_por_modelo = df.groupby("modelo")["quantidade"].sum()
+
     return {
-        "receita": float(df["receita_liquida"].sum()),
+        "faturamento": float(df["faturamento"].sum()),
         "pedidos": int(df["id_pedido"].nunique()),
-        "clientes": int(df["id_cliente"].nunique()),
-        "ticket_medio": float(df.groupby("id_pedido")["total_pedido"].first().mean()),
-        "avaliacao": float(df["avaliacao_cliente"].dropna().mean() or 0),
-        "desconto_medio": float(df["taxa_desconto"].mean() * 100),
         "unidades": int(df["quantidade"].sum()),
+        "ticket_medio": float(df.groupby("id_pedido")["total_pedido"].first().mean()),
+        "desconto_medio": float(df["taxa_desconto"].mean() * 100),
+        "modelo_mais_vendido": str(unidades_por_modelo.idxmax()),
+        "regiao_maior_receita": str(receita_por_regiao.idxmax()),
+        "regiao_menor_receita": str(receita_por_regiao.idxmin()),
     }
 
 

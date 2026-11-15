@@ -165,10 +165,11 @@ def _kpis_com_delta(df: pd.DataFrame, df_prev: pd.DataFrame) -> list[tuple[str, 
     k = D.calcular_kpis(df)
     kp = D.calcular_kpis(df_prev)
     return [
-        ("Receita líquida", _fmt_moeda(k["receita"]), _delta_pct(k["receita"], kp["receita"])),
-        ("Pedidos", _fmt_int(k["pedidos"]), _delta_pct(k["pedidos"], kp["pedidos"])),
-        ("Clientes únicos", _fmt_int(k["clientes"]), _delta_pct(k["clientes"], kp["clientes"])),
-        ("Avaliação média", f"{k['avaliacao']:.2f}", _delta_pct(k["avaliacao"], kp["avaliacao"])),
+        ("Faturamento", _fmt_moeda(k["faturamento"]), _delta_pct(k["faturamento"], kp["faturamento"])),
+        ("Unidades vendidas", _fmt_int(k["unidades"]), _delta_pct(k["unidades"], kp["unidades"])),
+        ("Modelo mais vendido", k["modelo_mais_vendido"], None),
+        ("Região com maior receita", k["regiao_maior_receita"], None),
+        ("Região com menor receita", k["regiao_menor_receita"], None),
     ]
 
 
@@ -202,9 +203,9 @@ def main():
     st.divider()
 
     kpis = _kpis_com_delta(df, df_prev)
-    cols = st.columns(4)
-    for col, (label, value, delta) in zip(cols, kpis):
-        col.metric(label, value, delta=delta)
+    cols = st.columns(3)
+    for i, (label, value, delta) in enumerate(kpis):
+        cols[i % len(cols)].metric(label, value, delta=delta)
 
     st.subheader("Receita no período")
     serie = D.serie_temporal(df, "W")
