@@ -80,6 +80,22 @@ st.markdown(
         [data-testid="stSidebar"] [data-testid="stDateInputCalendarButton"]:hover {
             background: #E9EFF7;
         }
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button,
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button * {
+            color: #172438 !important;
+            -webkit-text-fill-color: #172438 !important;
+        }
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button:hover,
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button:focus,
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button:active {
+            background: #E9EFF7 !important;
+            border-color: #C7D3E3 !important;
+        }
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button:disabled,
+        [data-testid="stSidebar"] :is([data-testid="stDownloadButton"], [data-testid="stButton"]) button:disabled * {
+            color: #9AA8BC !important;
+            -webkit-text-fill-color: #9AA8BC !important;
+        }
         [data-testid="stMetric"] {
             padding: 16px 18px;
             background: #FFFFFF;
@@ -130,6 +146,36 @@ def _delta_pct(atual: float, anterior: float) -> str | None:
         return None
     diff = (atual - anterior) / anterior * 100
     return f"{diff:+.1f}%"
+
+
+def _csv_filtrado(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")
+
+
+def _tem_filtro_ativo(df_total: pd.DataFrame, filtros: dict) -> bool:
+    """Indica se ao menos um filtro saiu do valor padrão (faixa completa)."""
+    periodo = filtros.get("periodo")
+    data_min = df_total["data_pedido"].min().date()
+    data_max = df_total["data_pedido"].max().date()
+    if tuple(periodo) != (data_min, data_max):
+        return True
+    if any(
+        filtros.get(chave)
+        for chave in (
+            "regioes",
+            "paises",
+            "modelos",
+            "anos_modelo",
+            "generos",
+            "escolaridades",
+        )
+    ):
+        return True
+    faixa = filtros.get("faixa_idade")
+    return bool(faixa) and tuple(faixa) != (
+        int(df_total["idade"].min()),
+        int(df_total["idade"].max()),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -872,6 +918,31 @@ def main():
     if df.empty:
         st.info("Sem resultados para os filtros atuais.")
         st.stop()
+
+    filtro_ativo = _tem_filtro_ativo(df_total, filtros)
+
+    with st.sidebar:
+        st.divider()
+        if filtro_ativo:
+            st.session_state["aviso_exportar_sem_filtro"] = False
+            st.download_button(
+                "Exportar dados atuais",
+                data=_csv_filtrado(df),
+                file_name="sige_dados_filtrados.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="exportar_dados_atuais",
+            )
+            st.caption(f"{len(df):,} registros nos filtros atuais".replace(",", "."))
+        else:
+            if st.button(
+                "Exportar dados atuais",
+                use_container_width=True,
+                key="exportar_dados_atuais_sem_filtro",
+            ):
+                st.session_state["aviso_exportar_sem_filtro"] = True
+            if st.session_state.get("aviso_exportar_sem_filtro"):
+                st.error("Selecione ao menos um filtro para exportar os dados.")
 
     st.divider()
 
