@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import sqlite3
 from datetime import date
 from pathlib import Path
@@ -12,6 +14,7 @@ import streamlit as st
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "database" / "app.db"
+TEMP_DB_PATH = BASE_DIR / "database" / "temp.db"
 
 
 def _connect() -> sqlite3.Connection:
@@ -65,6 +68,112 @@ def carregar_dataset() -> pd.DataFrame:
     df["mes"] = df["data_pedido"].dt.to_period("M").dt.to_timestamp()
     df["taxa_desconto"] = (df["desconto"] / df["preco_item"]).clip(lower=0, upper=1)
     return df
+
+
+# ---------------------------------------------------------------------------
+# Banco de visão (database/temp.db) — dados de um CSV, sem alterar o app.db
+# ---------------------------------------------------------------------------
+COLUNAS_OBRIGATORIAS = [
+    "data_pedido",
+    "id_pedido",
+    "id_cliente",
+    "idade",
+    "genero",
+    "escolaridade",
+    "pais",
+    "regiao",
+    "modelo",
+    "ano_modelo",
+    "quantidade",
+    "preco_item",
+    "desconto",
+    "receita_liquida",
+    "faturamento",
+    "total_pedido",
+    "avaliacao_cliente",
+]
+
+COLUNAS_NUMERICAS = [
+    "idade",
+    "ano_modelo",
+    "quantidade",
+    "preco_item",
+    "desconto",
+    "receita_liquida",
+    "faturamento",
+    "total_pedido",
+    "avaliacao_cliente",
+]
+
+
+def _ler_csv(conteudo: bytes) -> pd.DataFrame:
+    """Lê o CSV do botão 'Exportar dados atuais' (; + vírgula decimal)."""
+    ultimo_erro: Exception | None = None
+    for separador, decimal in ((";", ","), (",", ".")):
+        try:
+            df = pd.read_csv(
+                io.BytesIO(conteudo),
+                sep=separador,
+                decimal=decimal,
+                encoding="utf-8-sig",
+            )
+        except Exception as exc:  # noqa: BLE001 - convertida em mensagem amigável
+            ultimo_erro = exc
+            continue
+        if df.shape[1] > 1:
+            return df
+    if ultimo_erro is not None:
+        raise ValueError(f"Não foi possível ler o CSV: {ultimo_erro}") from ultimo_erro
+    raise ValueError("Não foi possível ler o CSV: formato não reconhecido.")
+
+
+def _normalizar_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    """Valida as colunas, converte tipos e deriva as colunas usadas pelos gráficos."""
+    faltantes = [coluna for coluna in COLUNAS_OBRIGATORIAS if coluna not in df.columns]
+    if faltantes:
+        raise ValueError("Colunas obrigatórias ausentes no CSV: " + ", ".join(faltantes))
+
+    df = df.copy()
+    df["data_pedido"] = pd.to_datetime(df["data_pedido"], errors="coerce")
+    for coluna in COLUNAS_NUMERICAS:
+        df[coluna] = pd.to_numeric(df[coluna], errors="coerce")
+    df = df.dropna(subset=["data_pedido", "idade"])
+
+    df["ano"] = df["data_pedido"].dt.year
+    df["mes"] = df["data_pedido"].dt.to_period("M").dt.to_timestamp()
+    df["taxa_desconto"] = (df["desconto"] / df["preco_item"]).clip(lower=0, upper=1)
+    return df.reset_index(drop=True)
+
+
+def import_ativo() -> bool:
+    """Indica se existe um banco de visão carregado a partir de um CSV."""
+    return TEMP_DB_PATH.exists()
+
+
+def importar_csv(conteudo: bytes) -> None:
+    """Recria a tabela de dados em database/temp.db com o conteúdo do CSV enviado."""
+    df = _normalizar_dataset(_ler_csv(conteudo))
+    if df.empty:
+        raise ValueError("O CSV não possui registros válidos (verifique as datas).")
+
+    TEMP_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.closing(sqlite3.connect(TEMP_DB_PATH)) as conn:
+        df.to_sql("dados", conn, index=False, if_exists="replace")
+        conn.commit()
+
+
+def carregar_importado() -> pd.DataFrame | None:
+    """Carrega os dados do banco de visão, se ele existir."""
+    if not TEMP_DB_PATH.exists():
+        return None
+    with contextlib.closing(sqlite3.connect(TEMP_DB_PATH)) as conn:
+        df = pd.read_sql_query("SELECT * FROM dados", conn)
+    return _normalizar_dataset(df)
+
+
+def remover_importado() -> None:
+    """Descarta o banco de visão, voltando aos dados originais."""
+    TEMP_DB_PATH.unlink(missing_ok=True)
 
 
 def aplicar_filtros(

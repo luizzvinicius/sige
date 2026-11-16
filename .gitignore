@@ -11,6 +11,9 @@ __pycache__/
 # Banco de dados local (gerado a partir de database/schema.sql)
 database/app.db
 
+# Banco de visão dos dados importados via CSV
+database/temp.db
+
 # Script que insere os dados
 database/commands.sql
 
