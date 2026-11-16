@@ -178,6 +178,24 @@ def _tem_filtro_ativo(df_total: pd.DataFrame, filtros: dict) -> bool:
     )
 
 
+_CHAVES_FILTROS = [
+    "filtro_periodo",
+    "filtro_regioes",
+    "filtro_paises",
+    "filtro_modelos",
+    "filtro_anos_modelo",
+    "filtro_generos",
+    "filtro_escolaridades",
+    "filtro_faixa_idade",
+]
+
+
+def _resetar_filtros() -> None:
+    """Limpa os filtros para recalcular os limites ao trocar a fonte de dados."""
+    for chave in _CHAVES_FILTROS:
+        st.session_state.pop(chave, None)
+
+
 # ---------------------------------------------------------------------------
 # Opções ECharts
 # ---------------------------------------------------------------------------
@@ -797,6 +815,7 @@ def barra_filtros(df: pd.DataFrame) -> dict:
                 value=(data_min, data_max),
                 min_value=data_min,
                 max_value=data_max,
+                key="filtro_periodo",
             )
             if not (isinstance(periodo, (tuple, list)) and len(periodo) == 2):
                 periodo = (data_min, data_max)
@@ -806,12 +825,14 @@ def barra_filtros(df: pd.DataFrame) -> dict:
                 "Região",
                 sorted(df["regiao"].dropna().unique().tolist()),
                 placeholder="Todas as regiões",
+                key="filtro_regioes",
             )
             paises_opcoes = df if not regioes else df[df["regiao"].isin(regioes)]
             paises = st.multiselect(
                 "País",
                 sorted(paises_opcoes["pais"].dropna().unique().tolist()),
                 placeholder="Todos os países",
+                key="filtro_paises",
             )
 
         with st.expander("Veículos", expanded=False):
@@ -819,11 +840,13 @@ def barra_filtros(df: pd.DataFrame) -> dict:
                 "Modelo",
                 sorted(df["modelo"].dropna().unique().tolist()),
                 placeholder="Todos os modelos",
+                key="filtro_modelos",
             )
             anos_modelo = st.multiselect(
                 "Ano do modelo",
                 sorted(df["ano_modelo"].dropna().unique().tolist(), reverse=True),
                 placeholder="Todos os anos",
+                key="filtro_anos_modelo",
             )
 
         with st.expander("Perfil do cliente", expanded=False):
@@ -831,11 +854,13 @@ def barra_filtros(df: pd.DataFrame) -> dict:
                 "Gênero",
                 sorted(df["genero"].dropna().unique().tolist()),
                 placeholder="Todos",
+                key="filtro_generos",
             )
             escolaridades = st.multiselect(
                 "Escolaridade",
                 sorted(df["escolaridade"].dropna().unique().tolist()),
                 placeholder="Todas",
+                key="filtro_escolaridades",
             )
             idade_min = int(df["idade"].min())
             idade_max = int(df["idade"].max())
@@ -844,6 +869,7 @@ def barra_filtros(df: pd.DataFrame) -> dict:
                 idade_min,
                 idade_max,
                 (idade_min, idade_max),
+                key="filtro_faixa_idade",
             )
 
     return dict(
@@ -895,20 +921,42 @@ def _kpis_com_delta(df: pd.DataFrame, df_prev: pd.DataFrame) -> list[tuple[str, 
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main():
-    try:
-        df_total = D.carregar_dataset()
-    except FileNotFoundError as exc:
-        st.error(str(exc))
-        st.stop()
+def _painel_import() -> None:
+    """Controles de importação do CSV e retorno aos dados originais."""
+    st.caption(
+        "Envie um CSV no formato do botão 'Exportar dados atuais'. "
+        "Os dados são gravados em database/temp.db e não alteram o banco original."
+    )
+    arquivo = st.file_uploader("Arquivo CSV", type=["csv"], key="importar_csv")
+    if st.button(
+        "Importar e visualizar",
+        type="primary",
+        use_container_width=True,
+        key="confirmar_import",
+    ):
+        if arquivo is None:
+            st.error("Selecione um arquivo CSV para importar.")
+        else:
+            try:
+                D.importar_csv(arquivo.getvalue())
+            except ValueError as exc:
+                st.error(str(exc))
+            else:
+                _resetar_filtros()
+                st.rerun()
 
-    if df_total.empty:
-        st.warning("O banco está vazio — verifique a carga dos dados.")
-        st.stop()
+    if D.import_ativo():
+        if st.button(
+            "Voltar aos dados originais",
+            use_container_width=True,
+            key="voltar_original",
+        ):
+            D.remover_importado()
+            _resetar_filtros()
+            st.rerun()
 
-    st.title("Vendas de veículos")
-    st.caption("Visão geral de receita, performance regional e perfil dos clientes.")
 
+def _render_dashboard(df_total: pd.DataFrame) -> None:
     filtros = barra_filtros(df_total)
     df = D.aplicar_filtros(df_total, **filtros)
     df_prev = _janela_anterior(
@@ -917,7 +965,7 @@ def main():
 
     if df.empty:
         st.info("Sem resultados para os filtros atuais.")
-        st.stop()
+        return
 
     filtro_ativo = _tem_filtro_ativo(df_total, filtros)
 
@@ -1064,6 +1112,46 @@ def main():
                 theme="streamlit",
                 key="perfil_escolaridade",
             )
+
+
+def main():
+    importado_ativo = D.import_ativo()
+    if importado_ativo:
+        df_total = D.carregar_importado()
+    else:
+        try:
+            df_total = D.carregar_dataset()
+        except FileNotFoundError as exc:
+            st.error(str(exc))
+            st.stop()
+
+    if df_total is None or df_total.empty:
+        st.warning("Nenhum dado disponível — verifique a carga do banco ou o arquivo importado.")
+        st.stop()
+
+    aba_dashboard, aba_importar = st.tabs(["Dashboard", "Importar dados"])
+
+    with aba_dashboard:
+        if importado_ativo:
+            st.subheader("Vendas de veículos")
+            st.info(
+                "Visualizando os dados importados. Abra a aba **Importar dados** "
+                "para ver os gráficos ou voltar aos dados originais."
+            )
+        else:
+            st.title("Vendas de veículos")
+            st.caption("Visão geral de receita, performance regional e perfil dos clientes.")
+            _render_dashboard(df_total)
+
+    with aba_importar:
+        st.subheader("Importar dados")
+        _painel_import()
+        if importado_ativo:
+            st.divider()
+            st.title("Vendas de veículos")
+            st.caption("Visualização dos dados do CSV importado.")
+            _render_dashboard(df_total)
+
 
 if __name__ == "__main__":
     main()
