@@ -7,7 +7,7 @@ Dashboard de vendas em Python: **Streamlit** (frontend) + **FastAPI** (backend) 
 ```
 dashboard-python/
 ├── api/
-│   └── main.py          # API FastAPI (healthcheck, produtos, vendas)
+│   └── main.py          # API FastAPI (healthcheck e /api/dados)
 ├── dashboard/
 │   └── app.py           # Dashboard Streamlit (gráfico de barras por data)
 ├── database/
@@ -83,11 +83,63 @@ $env:API_URL = "http://localhost:8000"
 
 ## Endpoints
 
-| Método | Rota              | Descrição                                              |
-| ------ | ----------------- | ------------------------------------------------------ |
-| GET    | `/health`         | Healthcheck da API e do banco                          |
-| GET    | `/produtos/{id}`  | Busca um produto por id                                |
-| GET    | `/vendas`         | Total vendido por dia (`data_inicio` e `data_fim` opcionais) |
+| Método | Rota         | Descrição                                                    |
+| ------ | ------------ | ------------------------------------------------------------ |
+| GET    | `/health`    | Healthcheck da API e do banco                                 |
+| GET    | `/api/dados` | Dataset de vendas em JSON, com os filtros do dashboard        |
+
+### `GET /api/dados`
+
+Todos os filtros são opcionais; sem eles, a API retorna o dataset completo.
+Filtros de lista podem ser repetidos na query string (ex.: `?regiao=Europa&regiao=Ásia-Pacífico`).
+
+| Parâmetro         | Descrição                                                        |
+| ----------------- | ---------------------------------------------------------------- |
+| `data_inicio`     | Início do período de análise (`AAAA-MM-DD`)                      |
+| `data_fim`        | Fim do período de análise (`AAAA-MM-DD`)                         |
+| `regiao`          | Região (repetível)                                               |
+| `pais`            | País (repetível); precisa pertencer à região informada           |
+| `modelo`          | Modelo do veículo (repetível)                                    |
+| `ano`             | Ano do modelo do veículo (repetível)                             |
+| `genero`          | Gênero do cliente (repetível)                                    |
+| `escolaridade`    | Escolaridade do cliente (repetível)                              |
+| `idade_min`       | Idade mínima do cliente                                          |
+| `idade_max`       | Idade máxima do cliente                                          |
+
+Cada parâmetro é validado contra o banco (região existente, país pertencente à região,
+faixa etária e período dentro dos limites dos dados carregados, etc.). Valores inválidos
+retornam `422` com a mensagem de erro. Os filtros são aplicados com bind de parâmetros
+(`?`), sem interpolar valores no SQL.
+
+Exemplo de resposta:
+
+```json
+{
+  "total_registros": 12000,
+  "dados": [
+    {
+      "id_pedido": "TSLA-000682",
+      "data_pedido": "2022-01-01",
+      "total_pedido": 80885.92,
+      "avaliacao_cliente": 3.65,
+      "regiao": "América Latina",
+      "pais": "Colômbia",
+      "cliente": "Paula Douglas",
+      "idade": 25,
+      "genero": "Feminino",
+      "escolaridade": "Mestrado",
+      "cidade": "Seattle",
+      "modelo": "Model S",
+      "ano_modelo": 2022,
+      "quantidade": 1,
+      "preco_item": 82096.38,
+      "desconto": 1210.46,
+      "faturamento": 82096.38,
+      "receita_liquida": 80885.92
+    }
+  ]
+}
+```
 
 ## Modelo de dados
 
