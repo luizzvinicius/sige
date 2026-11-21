@@ -7,19 +7,34 @@ Dashboard de vendas em Python: **Streamlit** (frontend) + **FastAPI** (backend) 
 ```
 dashboard-python/
 ├── api/
-│   └── main.py          # API FastAPI (healthcheck e /api/dados)
+│   ├── main.py          # API FastAPI (healthcheck e /api/dados)
+│   └── dados.py         # CSV com a camada bronze e ouro e script de tratamento
 ├── dashboard/
-│   └── app.py           # Dashboard Streamlit (gráfico de barras por data)
+│   ├── app.py           # Dashboard
+│   └── data.py          # Camada de acesso a dados do dashboard
 ├── database/
 │   ├── app.db           # Banco SQLite (gerado automaticamente)
 │   ├── connection.py    # Conexão e inicialização do banco
+│   ├── csv-to-sql.py
 │   └── schema.sql       # Migration inicial com a carga de dados
 ├── .gitignore
+├── executar.bat         # Script de inicialização do projeto
 ├── README.md
 └── requirements.txt
 ```
 
 ## 1. Criar o ambiente virtual
+
+### 1.1 Inicializar projeto completo
+
+Execute a partir da raiz do projeto (`dashboard-python`):  
+Não precisa seguir com os outros passos de inicialização
+
+```bash
+./executar.bat
+```
+
+### 1.2 Executar por etapas
 
 **Windows (PowerShell):**
 
@@ -55,7 +70,7 @@ Para criar/recriar manualmente a partir da migration:
 python -m database.connection
 ```
 
-## 4. Subir a API
+## 4. Inicializar a API
 
 Execute a partir da raiz do projeto (`dashboard-python`):
 
@@ -65,7 +80,7 @@ uvicorn api.main:app --reload --port 8000
 
 Documentação interativa: http://localhost:8000/docs
 
-## 5. Subir o dashboard
+## 5. Inicializar o dashboard
 
 Em outro terminal, com o ambiente virtual ativado:
 
@@ -106,10 +121,8 @@ Filtros de lista podem ser repetidos na query string (ex.: `?regiao=Europa&regia
 | `idade_min`       | Idade mínima do cliente                                          |
 | `idade_max`       | Idade máxima do cliente                                          |
 
-Cada parâmetro é validado contra o banco (região existente, país pertencente à região,
-faixa etária e período dentro dos limites dos dados carregados, etc.). Valores inválidos
-retornam `422` com a mensagem de erro. Os filtros são aplicados com bind de parâmetros
-(`?`), sem interpolar valores no SQL.
+Cada parâmetro é validado.  
+Valores inválidos retornam `422` com a mensagem de erro.
 
 Exemplo de resposta:
 
@@ -140,12 +153,3 @@ Exemplo de resposta:
   ]
 }
 ```
-
-## Modelo de dados
-
-- `produto` — `id`, `nome`, `valor`
-- `venda` — `id_venda`, `data_venda`, `valor_total`
-- `item_venda` — `id`, `id_venda`, `id_produto`, `quantidade`, `valor_unitario` (resolve a relação **N:N** entre venda e produto)
-
-As datas de carga em `database/schema.sql` são relativas ao dia atual, então o filtro
-padrão do dashboard (últimos 30 dias) sempre retorna dados.
